@@ -41,9 +41,10 @@ int cmd2;
 int cmd3;
 
 typedef struct{
-   int16_t steer;
-   int16_t speed;
-   //uint32_t crc;
+    int16_t steer;
+    int16_t speed;
+    uint32_t crc;
+    uint32_t cnt;
 } Serialcommand;
 
 volatile Serialcommand command;
@@ -157,7 +158,7 @@ int main(void) {
 
   #ifdef CONTROL_SERIAL_USART2
     UART_Control_Init();
-    HAL_UART_Receive_DMA(&huart2, (uint8_t *)&command, 4);
+    HAL_UART_Receive_DMA(&huart2, (uint8_t *)&command, sizeof(command));
   #endif
 
   #ifdef DEBUG_I2C_LCD
@@ -221,6 +222,14 @@ int main(void) {
     #ifdef CONTROL_SERIAL_USART2
       cmd1 = CLAMP((int16_t)command.steer, -1000, 1000);
       cmd2 = CLAMP((int16_t)command.speed, -1000, 1000);
+
+      if(command.crc!=77777+command.steer*13+command.speed && command.crc!=131313){
+        cmd1=0;
+        cmd2=0;
+      }
+      if(command.crc==131313){
+        poweroff();
+      }
 
       timeout = 0;
     #endif
@@ -287,6 +296,8 @@ int main(void) {
 
 
     // ####### POWEROFF BY POWER-BUTTON #######
+    weakr=0;
+    weakl=0;
     if (HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN) && weakr == 0 && weakl == 0) {
       enable = 0;
       while (HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) {}
